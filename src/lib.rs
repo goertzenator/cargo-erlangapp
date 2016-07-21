@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::fs::DirEntry;
 use std::process;
 use std::error::Error;
-use std::io::{stderr, Write};
+use std::io::{self, stderr, Write};
 use std::convert::From;
 use std::result;
 use std::fmt::{self, Display};
@@ -261,11 +261,11 @@ fn clean_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
 }
 
 // Remove dir.  The dir being absent is not an error.
-fn remove_dir_all_force<P: AsRef<Path>>(path: P) -> Result<()> {
-    fs::metadata(s.as_ref())
+fn remove_dir_all_force<P: AsRef<Path>>(path: P) -> io::Result<()> {
+    fs::metadata(path.as_ref())
         .and_then(|m|
-                      if m.dir() {
-                          fs::remove_dir_all(p)
+                      if m.is_dir() {
+                          fs::remove_dir_all(path)
                       } else {
                           Ok(())
                       }
