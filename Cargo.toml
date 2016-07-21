@@ -1,6 +1,6 @@
 [package]
 name = "cargo-erlangapp"
-version = "0.1.0"
+version = "0.1.1"
 description = "Build Rust crates embedded in an Erlang application"
 repository = "https://github.com/goertzenator/cargo-erlangapp"
 readme = "README.md"
