@@ -9,8 +9,20 @@ use std::path::{Path};
 use walkdir::WalkDir;
 use itertools::Itertools;
 
+#[cfg(unix)]
 const TEST_DIR: &'static str = "tests/testdir";
+#[cfg(unix)]
 const APP_DIR: &'static str = "tests/testdir/testapp";
+#[cfg(unix)]
+const APP_SRC: &'static str = "tests/testapp";
+
+#[cfg(windows)]
+const TEST_DIR: &'static str = "tests\\testdir";
+#[cfg(windows)]
+const APP_DIR: &'static str = "tests\\testdir\\testapp";
+#[cfg(windows)]
+const APP_SRC: &'static str = "tests\\testapp";
+
 
 #[test]
 fn do_test() {
@@ -73,7 +85,7 @@ fn file_must_exist<S: AsRef<OsStr> + ?Sized>(s: &S) -> Result<String,String> {
 
 fn test_init() {
     test_cleanup();
-    copy_all("tests/testapp", TEST_DIR).unwrap();
+    copy_all(APP_SRC, TEST_DIR).unwrap();
 }
 
 
