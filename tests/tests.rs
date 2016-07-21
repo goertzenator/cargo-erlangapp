@@ -38,10 +38,11 @@ fn do_test() {
     invoke_with_args(&["cargo-erlangapp", "clean" ]);
     check_clean();
 
-    invoke_with_args(&["cargo-erlangapp", "build", "--target=x86_64-unknown-linux-gnu" ]);
-    check_build();
-    invoke_with_args(&["cargo-erlangapp", "clean" ]);
-    check_clean();
+    // this test is not portable
+    //    invoke_with_args(&["cargo-erlangapp", "build", "--target=x86_64-unknown-linux-gnu" ]);
+    //    check_build();
+    //    invoke_with_args(&["cargo-erlangapp", "clean" ]);
+    //    check_clean();
 
 
     invoke_with_args(&["cargo-erlangapp", "test" ]);
