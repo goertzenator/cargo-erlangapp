@@ -149,7 +149,7 @@ fn linker_args(_target: &Target) -> &'static [&'static str] {
 /// Dylibs have `lib` prefix, and `.dylib` suffix gets changed to `.so`.
 #[cfg(target_os="macos")]
 pub fn target_filenames(target: &Target) -> (String, String) {
-    match target {
+    match *target {
         Target::Bin(ref s) => (s.to_string(), s.to_string()),
         Target::Dylib(ref s) => ("lib".to_string() + s + ".so", "lib".to_string() + s + ".dylib"),
     }
@@ -159,7 +159,7 @@ pub fn target_filenames(target: &Target) -> (String, String) {
 /// Bins have `.exe` suffix, dylibs have `.dll` suffix.
 #[cfg(windows)]
 pub fn target_filenames(target: &Target) -> (String, String) {
-    match target {
+    match *target {
         Target::Bin(ref s) => (s.to_string() + ".exe", s.to_string() + ".exe"),
         Target::Dylib(ref s) => (s.to_string() + ".dll", s.to_string() + ".dll"),
     }
@@ -257,7 +257,19 @@ fn clean_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
 
     // clean priv/crates
     let output_dir =  appdir.join("priv").join("crates");
-    fs::remove_dir_all(output_dir).map_err(|_|"can't delete output dir".into())
+    remove_dir_all_force(output_dir).map_err(|_|"can't delete output dir".into())
+}
+
+// Remove dir.  The dir being absent is not an error.
+fn remove_dir_all_force<P: AsRef<Path>>(path: P) -> Result<()> {
+    fs::metadata(s.as_ref())
+        .and_then(|m|
+                      if m.dir() {
+                          fs::remove_dir_all(p)
+                      } else {
+                          Ok(())
+                      }
+        )
 }
 
 fn cargo_command(cmd: &str, args: &[String], dir: &Path) -> Result<(), MsgError> {
@@ -277,7 +289,6 @@ fn cargo_command(cmd: &str, args: &[String], dir: &Path) -> Result<(), MsgError>
 
 
 fn enumerate_crate_dirs(appdir: &Path) -> Vec<PathBuf> {
-    println!("enumerate_crate_dirs {:?}", appdir);
     appdir
         .join("crates")              // :PathBuf
         .read_dir()                  // :Result<ReadDir>
