@@ -1,0 +1,6 @@
+[package]
+name = "holalib"
+version = "0.1.0"
+authors = ["Daniel Goertzen <daniel.goertzen@gmail.com>"]
+
+[dependencies]
