@@ -16,6 +16,18 @@ macro_rules! otry(
     ($e:expr) => (match $e { Some(e) => e, None => return None })
 );
 
+// Special OSX link args
+// Without them linker throws a fit about NIF API calls.
+#[cfg(target_os="macos")]
+static DYLIB_LINKER_ARGS: &'static[&'static str] = &["--", "--codegen", "link-args=-flat_namespace -undefined suppress"];
+
+#[cfg(not(target_os="macos"))]
+static DYLIB_LINKER_ARGS: &'static[&'static str] = &[];
+
+
+static BIN_LINKER_ARGS: &'static[&'static str] = &[];
+
+
 /// Simple text error type for this application
 #[derive(Debug)]
 struct MsgError {
@@ -94,7 +106,7 @@ fn build_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
             rustc_args.extend(linker_args(&target).iter().map(|x|x.to_string()));
 
             // build it!
-            try!(cargo_command("rustc", argsinfo.cargo_args.as_slice(), crate_dir));
+            try!(cargo_command("rustc", rustc_args.as_slice(), crate_dir));
 
             // copy artifacts to priv/crates/<cratename>
             let (dst_name, src_name) = target_filenames(&target);
@@ -127,22 +139,13 @@ fn build_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
     Ok(())
 }
 
-// special OSX link args
-// Without them linker throws a fit about NIF API calls.
-#[cfg(target_os="macos")]
 fn linker_args(target: &Target) -> &'static [&'static str] {
-    match target {
-        Target::Dylib(_) =>
-            &["--", "--codegen", "link-args='-flat_namespace -undefined suppress'"],
-        _ =>
-            &[],
+    match *target {
+        Target::Dylib(_) => DYLIB_LINKER_ARGS,
+        Target::Bin(_) => BIN_LINKER_ARGS,
     }
 }
 
-#[cfg(not(target_os="macos"))]
-fn linker_args(_target: &Target) -> &'static [&'static str] {
-   &[]
-}
 
 /// OS X naming
 ///
@@ -378,7 +381,7 @@ pub fn find_option_value<'a>(args: &'a [String], key: &str) -> Option<&'a str> {
     }
 }
 
-// attempt at generic version above.  Keeping for further work.
+// Attempt at generic version above.  Keeping for further work.
 //// search args for "key=value", "key= value", "key =value", or "key = value"
 ////fn find_option_value<'a>(args: &'a [&str], key: &str) -> Option<&'a str> {
 //pub fn find_option_value<'a, I>(args: I, key: &str) -> Option<&'a str>
