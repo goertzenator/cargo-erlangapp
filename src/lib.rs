@@ -63,6 +63,7 @@ fn usage() {
     writeln!(stderr(), "\tcargo-erlangapp build [cargo rustc args]").unwrap();
     writeln!(stderr(), "\tcargo-erlangapp clean [cargo clean args]").unwrap();
     writeln!(stderr(), "\tcargo-erlangapp test [cargo test args]").unwrap();
+    process::exit(1);
 }
 
 
@@ -72,6 +73,7 @@ fn invoke(argsinfo: &ArgsInfo, appdir: &Path) {
         Ok(_) => (),
         Err(err) => {
             writeln!(stderr(), "Error: {}", err).unwrap();
+            process::exit(1);
         }
     }
 }
