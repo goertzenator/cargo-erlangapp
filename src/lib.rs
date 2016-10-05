@@ -50,13 +50,19 @@ impl Error for MsgError {
 }
 
 /// Main entry point into this application.  Invoked by main() and integration tests
-pub fn invoke_with_args<I>(args: I, appdir: &Path)
-    where I: IntoIterator,
-          I::Item: Into<String>,
-{
-    let args: Vec<String> = args.into_iter().map(|x| x.into()).collect();
-    ArgsInfo::from_args(&args).map_or_else(usage, |ai|invoke(&ai, appdir));
+pub fn invoke_with_args_str(args: &[&str], appdir: &Path) {
+    let args_string: Vec<String> = args.into_iter().cloned().map(From::from).collect();
+    invoke_with_args(&args_string, appdir)
 }
+
+pub fn invoke_with_args(args: &[String], appdir: &Path)
+{
+    match ArgsInfo::from_args(&args) {
+        Some(ref ai) => invoke(ai, appdir),
+        None => usage(),
+    }
+}
+
 
 fn usage() {
     writeln!(stderr(), "Usage:").unwrap();
@@ -340,7 +346,7 @@ impl ArgsInfo {
             command: otry!(parse_cmd_name(args[1].as_str())),
             target: find_option_value(&args[2..], "--target").map(Into::into),
             build_type: build_type,
-            cargo_args: args[2..].iter().cloned().collect(),
+            cargo_args: args[2..].into_iter().cloned().collect(),
         })
     }
 }
@@ -359,21 +365,21 @@ fn find_option(args: &[String], key: &str) -> bool {
 }
 
 /// Search args for "key=value", "key= value", "key =value", or "key = value"
-pub fn find_option_value<'a>(args: &'a [String], key: &str) -> Option<&'a str> {
+pub fn find_option_value(args: &[String], key: &str) -> Option<String> {
     let mut i = args.iter();
     loop {
         let arg0 = otry!(i.next());
         if arg0.starts_with(key) {
             // check 'key=value'
             match arg0.split('=').nth(1) { // try to get "value"
-                Some("") => return i.next().map(|x|x.as_str()), // "key= value"
-                Some(x) => return Some(x), // "key=value"
+                Some("") => return i.next().map(Clone::clone), // "key= value"
+                Some(x) => return Some(x.to_string()), // "key=value"
                 None => {
                     if **arg0 == *key { // "key =.."
                         let arg1 = otry!(i.next());
-                        if **arg1 == *"=" { return i.next().map(|x|x.as_str()) } // "key = value"
+                        if **arg1 == *"=" { return i.next().map(Clone::clone) } // "key = value"
                         if arg1.starts_with('=') {
-                            return arg1.split('=').nth(1) // "key =value"
+                            return arg1.split('=').nth(1).map(From::from) // "key =value"
                         }
                         // something else, drop through and loop
                     }
@@ -383,56 +389,28 @@ pub fn find_option_value<'a>(args: &'a [String], key: &str) -> Option<&'a str> {
     }
 }
 
-// Attempt at generic version above.  Keeping for further work.
-//// search args for "key=value", "key= value", "key =value", or "key = value"
-////fn find_option_value<'a>(args: &'a [&str], key: &str) -> Option<&'a str> {
-//pub fn find_option_value<'a, I>(args: I, key: &str) -> Option<&'a str>
-//    where I: IntoIterator,
-//          I::Item: 'a + AsRef<str> {
-//    let mut i = args.into_iter().map(|x| x.as_ref());
-//    loop {
-//        let arg0i = otry!(i.next());
-//        let arg0 = arg0i.as_ref();
-//        if arg0.starts_with(key) {
-//            // check 'key=value'
-//            match arg0.split('=').nth(1) { // try to get "value"
-//                Some("") => return i.next().map(|x|x.as_ref()), // "key= value"
-//                Some(x) => return Some(x), // "key=value"
-//                None => {
-//                    if arg0 == key { // "key =.."
-//                        let arg1i = otry!(i.next());
-//                        let arg1 = arg1i.as_ref();
-//                        if arg1 == "=" { return i.next().map(|x|x.as_ref()) } // "key = value"
-//                        if arg1.starts_with('=') {
-//                            return arg1.split('=').nth(1) // "key =value"
-//                        }
-//                        // something else, drop through and loop
-//                    }
-//                }
-//            }
-//        }
-//    }
-//}
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    fn find_option_value_wrapper(args: &[&str], key: &str) -> Option<String> {
+        let argsv: Vec<String> = args.into_iter().cloned().map(From::from).collect();
+        find_option_value(&argsv, key)
+    }
+
     #[test]
     fn test_find_option_value() {
-        assert_eq!(None, find_option_value(&[], "key"));
-        assert_eq!(None, find_option_value(&["asdfasdfasdfsdf".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["asdfasdfasdfsdf".to_string(), "sdfsf".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["asdfasdfasdfsdf".to_string(), "sdfsf".to_string(), "sdfsdf".to_string()], "key"));
-        assert_eq!(Some("value"), find_option_value(&["key=value".to_string()], "key"));
-        assert_eq!(Some("value"), find_option_value(&["key".to_string(), "=value".to_string()], "key"));
-        assert_eq!(Some("value"), find_option_value(&["key=".to_string(), "value".to_string()], "key"));
-        assert_eq!(Some("value"), find_option_value(&["key".to_string(), "=".to_string(), "value".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["key".to_string(), "value".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["key".to_string(), "=".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["key".to_string()], "key"));
-        assert_eq!(None, find_option_value(&["key=".to_string()], "key"));
+        assert_eq!(None, find_option_value_wrapper(&[], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["asdfasdfasdfsdf"], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["asdfasdfasdfsdf", "sdfsf"], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["asdfasdfasdfsdf", "sdfsf", "sdfsdf"], "key"));
+        assert_eq!(Some("value".to_string()), find_option_value_wrapper(&["key=value"], "key"));
+        assert_eq!(Some("value".to_string()), find_option_value_wrapper(&["key", "=value"], "key"));
+        assert_eq!(Some("value".to_string()), find_option_value_wrapper(&["key=", "value"], "key"));
+        assert_eq!(Some("value".to_string()), find_option_value_wrapper(&["key", "=", "value"], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["key", "value"], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["key", "="], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["key"], "key"));
+        assert_eq!(None, find_option_value_wrapper(&["key="], "key"));
     }
 }

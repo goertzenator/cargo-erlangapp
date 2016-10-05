@@ -57,7 +57,7 @@ fn invoke_with_args(args: &[&str]) {
     let mut appdir = env::current_dir().unwrap();
     appdir.push(TEST_DIR);
     appdir.push("testapp");
-    cargo_erlangapp::invoke_with_args(args.into_iter().cloned(), &appdir)
+    cargo_erlangapp::invoke_with_args_str(args, &appdir)
 }
 
 fn check_build() {
