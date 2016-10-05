@@ -62,11 +62,13 @@ fn invoke_with_args(args: &[&str]) {
 }
 
 fn check_build() {
+    check_artifact("nihaocdylib", &Target::Dylib("nihaocdylib".into())).unwrap();
     check_artifact("bonjourdylib", &Target::Dylib("bonjourdylib".into())).unwrap();
     check_artifact("helloexe", &Target::Bin("helloexe".into())).unwrap();
 }
 
 fn check_clean() {
+    check_artifact("nihaocdylib", &Target::Dylib("nihaocdylib".into())).unwrap_err();
     check_artifact("bonjourdylib", &Target::Dylib("bonjourdylib".into())).unwrap_err();
     check_artifact("helloexe", &Target::Bin("helloexe".into())).unwrap_err();
 }

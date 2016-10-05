@@ -1,0 +1,9 @@
+[package]
+name = "nihaocdylib"
+version = "0.1.0"
+authors = ["Daniel Goertzen <daniel.goertzen@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]

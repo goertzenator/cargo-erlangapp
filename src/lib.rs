@@ -226,7 +226,7 @@ impl Target {
 
         if kinds.contains(&"bin") {
             Some(Target::Bin(name))
-        } else if kinds.contains(&"dylib") {
+        } else if kinds.contains(&"dylib") || kinds.contains(&"cdylib"){
             Some(Target::Dylib(name))
         } else {
             None
