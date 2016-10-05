@@ -28,24 +28,32 @@ static DYLIB_LINKER_ARGS: &'static[&'static str] = &[];
 static BIN_LINKER_ARGS: &'static[&'static str] = &[];
 
 
-/// Simple text error type for this application
+
 #[derive(Debug)]
-struct MsgError {
-    msg: String,
+enum MsgError {
+    Msg(&'static str),
+    MsgIo(&'static str, io::Error),
 }
-impl<'a> From<&'a str> for MsgError {
-    fn from(s: &'a str) -> MsgError {
-        MsgError{ msg: s.to_string() }
-    }
-}
-impl Display for MsgError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.msg)
-    }
-}
+
+use MsgError::*;
+
 impl Error for MsgError {
     fn description(&self) -> &str {
-        &self.msg
+        match self {
+            &Msg(s) => s,
+            &MsgIo(s, ref _err) => s,
+        }
+    }
+}
+
+impl Display for MsgError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Msg(s) =>
+                write!(f, "{}", s),
+            &MsgIo(s, ref err) =>
+                write!(f, "{} ({})", s, err),
+        }
     }
 }
 
@@ -97,7 +105,7 @@ fn do_command(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
 
 fn build_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
     // build(rustc) each crate
-    for crate_dir in enumerate_crate_dirs(appdir).iter() {
+    for crate_dir in try!(enumerate_crate_dirs(appdir)).iter() {
         for target in try!(enumerate_targets(crate_dir)).into_iter() {
             println!("Building {}", crate_dir.to_string_lossy());
 
@@ -135,12 +143,12 @@ fn build_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
             dst_path.push("crates");
             dst_path.push(crate_dir.file_name().unwrap()); // filename will be valid if rustc worked
             try!(fs::create_dir_all(&dst_path)
-                     .map_err(|_| "cannot create dest directories in priv/"));
+                     .map_err(|err| MsgIo("cannot create dest directories in priv/", err)));
             dst_path.push(dst_name);
 
             // finally, copy the artifact with its new name.
             try!(fs::copy(src_path, dst_path)
-                .map_err(|_| "cannot copy artifact"));
+                .map_err(|err| MsgIo("cannot copy artifact", err)));
         }
     };
 
@@ -231,10 +239,10 @@ fn enumerate_targets(crate_dir: &Path) -> Result<Vec<Target>, MsgError> {
     let output = try!(process::Command::new("cargo").arg("read-manifest")
                           .current_dir(crate_dir)
                           .output()
-                          .map_err(|_|"Cannot read crate manifest"));
+                          .map_err(|err| MsgIo("Cannot read crate manifest",err)));
 
     enumerate_targets_opt(output.stdout.as_slice())
-        .ok_or(MsgError::from("Cannot parse crate manifest"))
+        .ok_or(Msg("Cannot parse crate manifest"))
 }
 /// Parse "targets" portion of JSON text to extract targets
 fn enumerate_targets_opt(json_slice: &[u8]) -> Option<Vec<Target>> {
@@ -251,7 +259,7 @@ fn enumerate_targets_opt(json_slice: &[u8]) -> Option<Vec<Target>> {
 /// Test all crates
 fn test_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
     // test each create, short circuit fail
-    for crate_dir in enumerate_crate_dirs(appdir).iter() {
+    for crate_dir in try!(enumerate_crate_dirs(appdir)).iter() {
         println!("Testing {}", crate_dir.to_string_lossy());
         try!(cargo_command("test", &argsinfo.cargo_args, crate_dir));
     };
@@ -261,14 +269,14 @@ fn test_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
 /// Clean all crates, remote artifacts in `priv/`
 fn clean_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
     // clean all crate dirs
-    for crate_dir in enumerate_crate_dirs(appdir).iter() {
+    for crate_dir in try!(enumerate_crate_dirs(appdir)).iter() {
         println!("Cleaning {}", crate_dir.to_string_lossy());
         try!(cargo_command("clean", &argsinfo.cargo_args, crate_dir));
     };
 
     // clean priv/crates
     let output_dir =  appdir.join("priv").join("crates");
-    remove_dir_all_force(output_dir).map_err(|_|"can't delete output dir".into())
+    remove_dir_all_force(output_dir).map_err(|err| MsgIo("can't delete output dir", err))
 }
 
 // Remove dir.  The dir being absent is not an error.
@@ -296,25 +304,30 @@ fn cargo_command(cmd: &str, args: &[String], dir: &Path) -> Result<(), MsgError>
         .args(args)
         .current_dir(dir)
         .status()
-        .map_err(|_| "cannot start cargo".into())
+        .map_err(|err| MsgIo("cannot start cargo", err))
         .and_then(|status| {
             match status.success() {
                 true => Ok(()),
-                false => Err("cargo command failed".into()),
+                false => Err(Msg("cargo command failed")),
             }
         })
 }
 
 
-fn enumerate_crate_dirs(appdir: &Path) -> Vec<PathBuf> {
+fn enumerate_crate_dirs(appdir: &Path) -> Result<Vec<PathBuf>, MsgError> {
+
     appdir
         .join("crates")              // :PathBuf
         .read_dir()                  // :Result<ReadDir>
-        .into_iter().flat_map(|x|x)  // :ReadDir
-        .filter_map(result::Result::ok)      // discard Error entries and unwrap
-        .filter(is_crate)            // discard non-crate entries
-        .map(|x| x.path())           // take whole path
-        .collect()
+        .map_err(|err|
+            MsgIo("Cannot read 'crates' directory", err)
+        )
+        .map(|dirs|
+            dirs.filter_map(result::Result::ok)      // discard Error entries and unwrap
+            .filter(is_crate)            // discard non-crate entries
+            .map(|x| x.path())           // take whole path
+            .collect()
+        )
 }
 
 fn is_crate(dirent: &DirEntry) -> bool {

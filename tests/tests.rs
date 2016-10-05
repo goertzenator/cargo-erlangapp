@@ -48,6 +48,7 @@ fn do_test() {
     invoke_with_args(&["cargo-erlangapp", "test" ]);
     check_clean();
     invoke_with_args(&["cargo-erlangapp", "clean" ]);
+
     check_clean();
 
     test_cleanup();
