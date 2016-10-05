@@ -273,14 +273,21 @@ fn clean_crates(argsinfo: &ArgsInfo, appdir: &Path) -> Result<(), MsgError> {
 
 // Remove dir.  The dir being absent is not an error.
 fn remove_dir_all_force<P: AsRef<Path>>(path: P) -> io::Result<()> {
-    fs::metadata(path.as_ref())
-        .and_then(|m|
-                      if m.is_dir() {
-                          fs::remove_dir_all(path)
-                      } else {
-                          Ok(())
-                      }
-        )
+
+    match fs::metadata(path.as_ref()) {
+        Err(err) => {
+            match err.kind() {
+                io::ErrorKind::NotFound => Ok(()),  // not finding is okay (already cleaned)
+                _ => Err(err),   // permission error on parent dir?
+            }
+        },
+        Ok(m) => {
+            match m.is_dir() {
+                true => fs::remove_dir_all(path),
+                false => Ok(()),
+            }
+        },
+    }
 }
 
 fn cargo_command(cmd: &str, args: &[String], dir: &Path) -> Result<(), MsgError> {
